@@ -1,63 +1,72 @@
 package com.scetzhbook.exchangePipeline.model;
 
-public class Trade{
-        private String tradeId;
-        private String buyOrderId;
-        private String sellOrderId;
-        private double price;
-        private long quantity;
-        private long timestamp;
+public class Trade {
 
-        public Trade() {}
+    private String tradeId;
+    private String symbol;
 
-        public Trade(String tradeId, String buyOrderId, String sellOrderId, double price, long quantity, long timestamp) {
-            this.tradeId = tradeId;
-            this.buyOrderId = buyOrderId;
-            this.sellOrderId = sellOrderId;
-            this.price = price;
-            this.quantity = quantity;
-            this.timestamp = timestamp;
-        }
+    private String buyOrderId;
+    private String sellOrderId;
+    private double price;
+    private long quantity;
+    private long timestamp;
 
+    public Trade(String tradeId, String symbol, String buyOrderId, String sellOrderId, double price, long quantity, long timestamp) {
+        this.tradeId = tradeId;
+        this.symbol = symbol;
+        this.buyOrderId = buyOrderId;
+        this.sellOrderId = sellOrderId;
+        this.price = price;
+        this.quantity = quantity;
+        this.timestamp = timestamp;
+    }
 
-        public String getBuyOrderId() {
-            return buyOrderId;
-        }
+    public String getSymbol() {
+        return symbol;
+    }
 
-        public void setBuyOrderId(String buyOrderId) {
-            this.buyOrderId = buyOrderId;
-        }
+    public void setSymbol(String symbol) {
+        this.symbol = symbol;
+    }
 
-        public String getSellOrderId() {
-            return sellOrderId;
-        }
+    public String getBuyOrderId() {
+        return buyOrderId;
+    }
 
-        public void setSellOrderId(String sellOrderId) {
-            this.sellOrderId = sellOrderId;
-        }
+    public void setBuyOrderId(String buyOrderId) {
+        this.buyOrderId = buyOrderId;
+    }
 
-        public double getPrice() {
-            return price;
-        }
+    public String getSellOrderId() {
+        return sellOrderId;
+    }
 
-        public void setPrice(double price) {
-            this.price = price;
-        }
+    public void setSellOrderId(String sellOrderId) {
+        this.sellOrderId = sellOrderId;
+    }
 
-        public long getQuantity() {
-            return quantity;
-        }
+    public double getPrice() {
+        return price;
+    }
 
-        public void setQuantity(long quantity) {
-            this.quantity = quantity;
-        }
+    public void setPrice(double price) {
+        this.price = price;
+    }
 
-        public long getTimestamp() {
-            return timestamp;
-        }
+    public long getQuantity() {
+        return quantity;
+    }
 
-        public void setTimestamp(long timestamp) {
-            this.timestamp = timestamp;
-        }
-   
+    public void setQuantity(long quantity) {
+        this.quantity = quantity;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
+    }
+
 }

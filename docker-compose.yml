@@ -1,0 +1,57 @@
+# Kafka-compatible broker for local demo (Redpanda).
+# Start: docker compose up -d
+# Stop:  docker compose down
+services:
+  app:
+    build: .
+    container_name: exchange-pipeline-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      - kafka
+
+  kafka:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.11
+    container_name: exchange-pipeline-kafka
+    command:
+      - redpanda
+      - start
+      - --smp
+      - "1"
+      - --memory
+      - 1G
+      - --reserve-memory
+      - 0M
+      - --overprovisioned
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://localhost:9092
+    ports:
+      - "9092:9092"
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: exchange-pipeline-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - app
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: exchange-pipeline-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    depends_on:
+      - prometheus

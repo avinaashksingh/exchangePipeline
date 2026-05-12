@@ -14,15 +14,17 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 
+import org.springframework.stereotype.Service;
 import org.yaml.snakeyaml.util.Tuple;
 
 import com.scetzhbook.exchangePipeline.model.Side;
 import com.scetzhbook.exchangePipeline.model.Trade;
 
+@Service
 public class OrderBook implements OrderBookInterface {
 
-    private PriorityQueue<LinkedList<Order>> bestAsk = new PriorityQueue<>(Comparator.comparingDouble(o -> o.getFirst().price()));
-    private PriorityQueue<LinkedList<Order>> bestBid = new PriorityQueue<>(Comparator.comparingDouble(o -> -o.getFirst().price()));
+    private PriorityQueue<LinkedList<Order>> bestAsk = new PriorityQueue<>(Comparator.comparingDouble(o -> o.getFirst().getPrice()));
+    private PriorityQueue<LinkedList<Order>> bestBid = new PriorityQueue<>(Comparator.comparingDouble(o -> -o.getFirst().getPrice()));
     private Map<String, Order> orderMap = new HashMap<>();
 
     private Map<Tuple<Double, Side>, Long> volumeMap = new HashMap<>();
@@ -40,7 +42,7 @@ public class OrderBook implements OrderBookInterface {
             throw new IllegalArgumentException("Order not found");
         }
         queue.remove(order);
-        volumeMap.put(new Tuple<>(order.getPrice(), order.getSide()), volumeMap.get(new Tuple<>(order.price(), order.side())) - order.quantity());
+        volumeMap.put(new Tuple<>(order.getPrice(), order.getSide()), volumeMap.get(new Tuple<>(order.getPrice(), order.getSide())) - order.getQuantity());
         if (queue.isEmpty()) {
             if (order.getSide() == Side.SELL) {
                 bestAsk.remove(queue);
@@ -81,10 +83,16 @@ public class OrderBook implements OrderBookInterface {
             order.setQuantity(order.getQuantity() - tradeQuantity);
 
             if(otherOrder.getQuantity() == 0) cancelOrder(otherOrder.getOrderId());
+            Long tradeTime = System.currentTimeMillis();
+            String tradeId = tradeTime.toString() + order.getSymbol();
+            String buyOrderId = otherOrder.getSide() == Side.BUY? otherOrder.getOrderId(): order.getOrderId();
+            String sellOrderId = otherOrder.getSide() == Side.SELL? otherOrder.getOrderId(): order.getOrderId();
+
             trades.add(new Trade(
-                System.currentTimeMillis().toString()
+                tradeId, order.getSymbol(), buyOrderId, sellOrderId, tradePrice, tradeQuantity, tradeTime
             ));
         }
+        if(order.getQuantity() > 0) addOrderToBook(order, sameSide);
         return Optional.of(trades);
 
     }

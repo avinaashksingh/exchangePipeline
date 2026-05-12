@@ -1,0 +1,12 @@
+# Scrape the Spring Boot app running in docker-compose.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: exchange-pipeline
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - app:8080
+        labels:
+          application: exchangePipeline
