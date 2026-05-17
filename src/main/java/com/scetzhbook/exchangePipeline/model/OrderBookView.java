@@ -1,5 +1,7 @@
 package com.scetzhbook.exchangePipeline.model;
 
+import static java.lang.Long.min;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -7,20 +9,18 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.Queue;
 
 import org.springframework.stereotype.Component;
-import org.yaml.snakeyaml.util.Tuple;
-
 @Component
 public class OrderBookView {
 
-    private PriorityQueue<LinkedList<Order>> bestAsk = new PriorityQueue<>(Comparator.comparingDouble(o -> o.getFirst().getPrice()));
-    private PriorityQueue<LinkedList<Order>> bestBid = new PriorityQueue<>(Comparator.comparingDouble(o -> -o.getFirst().getPrice()));
-    private Map<String, Order> orderMap = new HashMap<>();
-
-    private Map<Tuple<Double, Side>, Long> volumeMap = new HashMap<>();
-    private Map<Tuple<Double, Side>, LinkedList<Order>> queueMap = new HashMap<>();
+    private final PriorityQueue<LinkedList<Order>> bestAsk =
+            new PriorityQueue<>(Comparator.comparingDouble(o -> o.getFirst().getPrice()));
+    private final PriorityQueue<LinkedList<Order>> bestBid =
+            new PriorityQueue<>(Comparator.comparingDouble(o -> -o.getFirst().getPrice()));
+    private final Map<String, Order> orderMap = new HashMap<>();
+    private final Map<BookLevelKey, Long> volumeMap = new HashMap<>();
+    private final Map<BookLevelKey, LinkedList<Order>> queueMap = new HashMap<>();
 
     public void apply(Object event) {
         if (event instanceof Order order) {
@@ -31,22 +31,66 @@ public class OrderBookView {
     }
 
     private void applyOrder(Order order) {
+        if (order.getQuantity() <= 0) {
+            return;
+        }
+
+        PriorityQueue<LinkedList<Order>> oppositeSide = order.getSide() == Side.BUY ? bestAsk : bestBid;
+        PriorityQueue<LinkedList<Order>> sameSide = order.getSide() == Side.BUY ? bestBid : bestAsk;
+
+        while (order.getQuantity() > 0 && !oppositeSide.isEmpty()) {
+            LinkedList<Order> queue = oppositeSide.peek();
+            if (queue.isEmpty()) {
+                oppositeSide.poll();
+                continue;
+            }
+            Order resting = queue.getFirst();
+            if ((order.getSide() == Side.BUY && resting.getPrice() > order.getPrice())
+                    || (order.getSide() == Side.SELL && resting.getPrice() < order.getPrice())) {
+                break;
+            }
+
+            long tradeQuantity = min(resting.getQuantity(), order.getQuantity());
+            resting.setQuantity(resting.getQuantity() - tradeQuantity);
+            order.setQuantity(order.getQuantity() - tradeQuantity);
+
+            BookLevelKey key = new BookLevelKey(resting.getPrice(), resting.getSide());
+            volumeMap.put(key, Math.max(0, volumeMap.getOrDefault(key, 0L) - tradeQuantity));
+
+            if (resting.getQuantity() == 0) {
+                queue.removeFirst();
+                orderMap.remove(resting.getOrderId());
+                if (queue.isEmpty()) {
+                    oppositeSide.poll();
+                    queueMap.remove(key);
+                }
+            }
+        }
+
         if (order.getQuantity() > 0) {
-            PriorityQueue<LinkedList<Order>> sameSide = order.getSide() == Side.BUY ? bestBid : bestAsk;
             addOrderToBook(order, sameSide);
         }
     }
 
+    /**
+     * Applies fills to resting (maker) orders. The taker is updated via {@link #applyOrder};
+     * fully filled takers are published with quantity 0 and never reach {@link #applyOrder}.
+     */
     private void applyTrade(Trade trade) {
         for (String orderId : List.of(trade.getBuyOrderId(), trade.getSellOrderId())) {
+            if (orderId.equals(trade.getTakerOrderId())) {
+                continue;
+            }
             Order order = orderMap.get(orderId);
             if (order == null) {
                 continue;
             }
             long tradeQuantity = trade.getQuantity();
+            BookLevelKey key = new BookLevelKey(order.getPrice(), order.getSide());
+            volumeMap.put(key, Math.max(0, volumeMap.getOrDefault(key, 0L) - tradeQuantity));
             order.setQuantity(order.getQuantity() - tradeQuantity);
             if (order.getQuantity() == 0) {
-                cancelOrder(order.getOrderId());
+                removeFromBook(order);
             }
         }
     }
@@ -54,16 +98,16 @@ public class OrderBookView {
     public Snapshot snapshot() {
         List<PriceLevel> bids = new ArrayList<>();
         List<PriceLevel> asks = new ArrayList<>();
-        for (Map.Entry<Tuple<Double, Side>, Long> entry : volumeMap.entrySet()) {
-            Tuple<Double, Side> key = entry.getKey();
+        for (Map.Entry<BookLevelKey, Long> entry : volumeMap.entrySet()) {
+            BookLevelKey key = entry.getKey();
             long volume = entry.getValue();
             if (volume <= 0) {
                 continue;
             }
-            if (key._2() == Side.BUY) {
-                bids.add(new PriceLevel(key._1(), volume));
+            if (key.side() == Side.BUY) {
+                bids.add(new PriceLevel(key.price(), volume));
             } else {
-                asks.add(new PriceLevel(key._1(), volume));
+                asks.add(new PriceLevel(key.price(), volume));
             }
         }
         bids.sort(Comparator.comparingDouble(PriceLevel::price).reversed());
@@ -71,39 +115,35 @@ public class OrderBookView {
         return new Snapshot(bids, asks);
     }
 
-    private void cancelOrder(String orderId) {
-        Order order = orderMap.remove(orderId);
-        if (order == null) {
-            throw new IllegalArgumentException("Order not found");
-        }
-        Queue<Order> queue = queueMap.get(new Tuple<>(order.getPrice(), order.getSide()));
+    private void removeFromBook(Order order) {
+        orderMap.remove(order.getOrderId());
+        BookLevelKey key = new BookLevelKey(order.getPrice(), order.getSide());
+        LinkedList<Order> queue = queueMap.get(key);
         if (queue == null) {
-            throw new IllegalArgumentException("Order not found");
+            return;
         }
         queue.remove(order);
-        volumeMap.put(new Tuple<>(order.getPrice(), order.getSide()), volumeMap.get(new Tuple<>(order.getPrice(), order.getSide())) - order.getQuantity());
         if (queue.isEmpty()) {
-            if (order.getSide() == Side.SELL) {
-                bestAsk.remove(queue);
-            } else {
-                bestBid.remove(queue);
-            }
-            queueMap.remove(new Tuple<>(order.getPrice(), order.getSide()));
+            PriorityQueue<LinkedList<Order>> heap = order.getSide() == Side.SELL ? bestAsk : bestBid;
+            heap.remove(queue);
+            queueMap.remove(key);
         }
-    }
-
-    private Long getVolume(Double price, Side side) {
-        return volumeMap.getOrDefault(new Tuple<>(price, side), 0L);
     }
 
     private void addOrderToBook(Order order, PriorityQueue<LinkedList<Order>> heap) {
         orderMap.put(order.getOrderId(), order);
-        LinkedList<Order> queue = queueMap.getOrDefault(new Tuple<>(order.getPrice(), order.getSide()), new LinkedList<Order>());
+        BookLevelKey key = new BookLevelKey(order.getPrice(), order.getSide());
+        LinkedList<Order> queue = queueMap.get(key);
+        boolean newLevel = queue == null;
+        if (newLevel) {
+            queue = new LinkedList<>();
+            queueMap.put(key, queue);
+        }
         queue.add(order);
-        heap.add(queue);
-        queueMap.put(new Tuple<>(order.getPrice(), order.getSide()), queue);
-        Long volume = volumeMap.getOrDefault(new Tuple<>(order.getPrice(), order.getSide()), 0L);
-        volumeMap.put(new Tuple<>(order.getPrice(), order.getSide()), volume + order.getQuantity());
+        if (newLevel) {
+            heap.add(queue);
+        }
+        volumeMap.put(key, volumeMap.getOrDefault(key, 0L) + order.getQuantity());
     }
 
     public record PriceLevel(double price, long volume) {}

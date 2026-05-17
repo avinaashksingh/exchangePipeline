@@ -1,4 +1,5 @@
-# Scrape the Spring Boot app running in docker-compose.
+# Scrapes the app on the host (./mvnw spring-boot:run).
+# Docker Desktop / Linux with host-gateway: host.docker.internal
 global:
   scrape_interval: 15s
 
@@ -7,6 +8,6 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - app:8080
+          - host.docker.internal:8080
         labels:
           application: exchangePipeline

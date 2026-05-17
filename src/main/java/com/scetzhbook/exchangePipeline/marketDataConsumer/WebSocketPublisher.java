@@ -12,7 +12,11 @@ public class WebSocketPublisher {
         this.template = template;
     }
 
-    public void publish(Object data) {
+    public void publishOrderBook(Object data) {
         template.convertAndSend("/topic/orderbook", data);
+    }
+
+    public void publishTrade(Object trade) {
+        template.convertAndSend("/topic/trades", trade);
     }
 }
