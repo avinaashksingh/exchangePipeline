@@ -1,0 +1,13 @@
+# Optional overlay: run the Spring Boot app in Docker (e.g. CI or full-stack demo).
+# Usage: docker compose -f docker-compose.yml -f docker-compose.app.yml up -d --build
+services:
+  app:
+    build: .
+    container_name: exchange-pipeline-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      kafka:
+        condition: service_started

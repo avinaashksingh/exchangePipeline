@@ -1,17 +1,11 @@
-# Kafka-compatible broker for local demo (Redpanda).
-# Start: docker compose up -d
-# Stop:  docker compose down
+# Infrastructure only (Kafka, Prometheus, Grafana).
+# Run the Spring Boot app on the host for debugging:
+#   docker compose up -d
+#   ./mvnw spring-boot:run
+#
+# Optional containerized app:
+#   docker compose -f docker-compose.yml -f docker-compose.app.yml up -d --build
 services:
-  app:
-    build: .
-    container_name: exchange-pipeline-app
-    ports:
-      - "8080:8080"
-    environment:
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    depends_on:
-      - kafka
-
   kafka:
     image: docker.redpanda.com/redpandadata/redpanda:v24.2.11
     container_name: exchange-pipeline-kafka
@@ -34,16 +28,25 @@ services:
       - PLAINTEXT://localhost:9092
     ports:
       - "9092:9092"
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   prometheus:
     image: prom/prometheus:v2.55.1
     container_name: exchange-pipeline-prometheus
     ports:
       - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
-      - app
+      kafka:
+        condition: service_started
 
   grafana:
     image: grafana/grafana:11.4.0
@@ -53,5 +56,9 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana-provisioning-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./monitoring/grafana-provisioning-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./monitoring/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/exchange-pipeline.json:ro
     depends_on:
       - prometheus

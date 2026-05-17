@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.scetzhbook.exchangePipeline.event.EventPublisher;
+import com.scetzhbook.exchangePipeline.logging.PipelineLogger;
 import com.scetzhbook.exchangePipeline.matchingEngine.OrderBook;
 import com.scetzhbook.exchangePipeline.metrics.MetricService;
 import com.scetzhbook.exchangePipeline.model.Order;
@@ -25,11 +26,14 @@ public class OrderController {
 
     private static final OrderIdGenerator ORDER_ID_GENERATOR = new OrderIdGenerator();
 
-    OrderBook book = new OrderBook();
+    @Autowired
+    private OrderBook book;
     @Autowired
     private EventPublisher eventPublisher;
     @Autowired
     private MetricService metricService;
+    @Autowired
+    private PipelineLogger pipelineLogger;
 
     @PostMapping
     public ResponseEntity<?> placeOrder(@RequestBody OrderRequest request) {
@@ -50,9 +54,11 @@ public class OrderController {
                 timestamp
         );
         Optional<List<Trade>> trades = book.placeOrder(order);
+        List<Trade> tradeList = trades.orElse(List.of());
+        int tradeCount = tradeList.size();
         metricService.recordLatency(System.nanoTime() - start);
-        eventPublisher.publishOrderEvent(order);
-        trades.get().forEach(eventPublisher::publishTradeEvent);
+        eventPublisher.publishOrderEvent(order, tradeList.isEmpty() ? null : tradeList);
+        pipelineLogger.orderAccepted(orderId, order.getSymbol(), order.getSide(), order.getPrice(), order.getQuantity(), tradeCount);
         return ResponseEntity.ok(trades);
     }
 
