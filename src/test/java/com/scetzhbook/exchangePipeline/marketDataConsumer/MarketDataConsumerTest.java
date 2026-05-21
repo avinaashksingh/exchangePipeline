@@ -29,7 +29,7 @@ class MarketDataConsumerTest {
         Order order = new Order("o1", "TST", Side.BUY, 100.0, 10, 12345L);
         marketDataConsumer.onOrder(order);
         verify(marketDataService).processOrder(order);
-        verify(pipelineLogger).kafkaConsumed("orders", "o1");
+        verify(pipelineLogger).kafkaConsumed("order-and-trades", "o1");
     }
 
     @Test
@@ -37,6 +37,6 @@ class MarketDataConsumerTest {
         Trade trade = new Trade("t1", "TST", "b1", "s1", "s1", 100.0, 10, 12345L);
         marketDataConsumer.onTrade(trade);
         verify(marketDataService).processTrade(trade);
-        verify(pipelineLogger).kafkaConsumed("trades", "t1");
+        verify(pipelineLogger).kafkaConsumed("order-and-trades", "t1");
     }
 }

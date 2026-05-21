@@ -22,7 +22,7 @@
 .subtitle {
   margin: 0.25rem 0 0;
   font-size: 0.85rem;
-  color: #8b9298;
+  color: var(--text-muted);
 }
 
 .status {
@@ -35,13 +35,13 @@
 }
 
 .status.on {
-  background: rgba(61, 155, 110, 0.2);
-  color: #5ecf96;
+  background: var(--bid-bg);
+  color: var(--bid);
 }
 
 .status.off {
-  background: rgba(196, 92, 92, 0.2);
-  color: #e07a7a;
+  background: var(--ask-bg);
+  color: var(--ask);
 }
 
 .grid {

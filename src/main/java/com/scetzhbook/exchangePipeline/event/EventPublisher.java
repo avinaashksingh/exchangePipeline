@@ -20,7 +20,7 @@ public class EventPublisher {
     private final PipelineLogger pipelineLogger;
     private final ExecutorService executor = new ThreadPoolExecutor(
             1,
-            2,
+            1,
             0L,
             TimeUnit.MILLISECONDS,
             new ArrayBlockingQueue<>(16384),
@@ -41,10 +41,10 @@ public class EventPublisher {
         executor.execute(() -> {
             if (trades != null) {
                 for (Trade trade : trades) {
-                    send("trades", order.getSymbol(), trade);
+                    send("order-and-trades", order.getSymbol(), trade);
                 }
             }
-            send("orders", order.getSymbol(), order);
+            send("order-and-trades", order.getSymbol(), order);
         });
     }
 

@@ -1,3 +1,18 @@
+:root {
+  --bg-deep: #0f172a;
+  --bg-panel: #1e293b;
+  --bg-panel-alt: #334155;
+  --border: #2d3a4f;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --bid: #2dd4bf;
+  --bid-bg: rgba(45, 212, 191, 0.15);
+  --ask: #fb7185;
+  --ask-bg: rgba(251, 113, 133, 0.15);
+  --accent: #e9c46a;
+  --accent-bg: rgba(233, 196, 106, 0.12);
+}
+
 *,
 *::before,
 *::after {
@@ -7,8 +22,8 @@
 body {
   margin: 0;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: #14171c;
-  color: #e6eaef;
+  background: var(--bg-deep);
+  color: var(--text-main);
   min-height: 100vh;
 }
 

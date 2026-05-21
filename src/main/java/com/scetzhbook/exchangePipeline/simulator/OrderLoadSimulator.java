@@ -108,7 +108,7 @@ public final class OrderLoadSimulator {
                 }
             }
 
-            long delayMs = (long) (random.nextDouble() * 50);
+            long delayMs = (long) (random.nextDouble() * 500);
             Thread.sleep(delayMs);
         }
     }

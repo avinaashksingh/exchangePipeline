@@ -1,5 +1,6 @@
 package com.scetzhbook.exchangePipeline.marketDataConsumer;
 
+import org.springframework.kafka.annotation.KafkaHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -8,6 +9,7 @@ import com.scetzhbook.exchangePipeline.model.Order;
 import com.scetzhbook.exchangePipeline.model.Trade;
 
 @Service
+@KafkaListener(topics = "order-and-trades", groupId = "exchange-pipeline-market-data")
 public class MarketDataConsumer {
 
     private final MarketDataService marketDataService;
@@ -18,15 +20,21 @@ public class MarketDataConsumer {
         this.pipelineLogger = pipelineLogger;
     }
 
-    @KafkaListener(topics = "orders", groupId = "exchange-pipeline-market-data")
+    @KafkaHandler
     public void onOrder(Order order) {
-        pipelineLogger.kafkaConsumed("orders", order.getOrderId());
+        pipelineLogger.kafkaConsumed("order-and-trades", order.getOrderId());
         marketDataService.processOrder(order);
     }
 
-    @KafkaListener(topics = "trades", groupId = "exchange-pipeline-market-data")
+    @KafkaHandler
     public void onTrade(Trade trade) {
-        pipelineLogger.kafkaConsumed("trades", trade.getTradeId());
+        pipelineLogger.kafkaConsumed("order-and-trades", trade.getTradeId());
         marketDataService.processTrade(trade);
+    }
+
+    @KafkaHandler(isDefault = true)
+    public void onUnknown(Object message) {
+        pipelineLogger.error("Received unknown message type from Kafka: " + 
+            (message != null ? message.getClass().getName() : "null"), null);
     }
 }

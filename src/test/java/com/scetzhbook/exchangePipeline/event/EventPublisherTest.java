@@ -46,7 +46,7 @@ class EventPublisherTest {
         eventPublisher.publishOrderEvent(order, List.of(trade));
 
         // Use timeout because it's executed in a background thread
-        verify(kafkaTemplate, timeout(1000)).send(eq("orders"), eq("TST"), eq(order));
-        verify(kafkaTemplate, timeout(1000)).send(eq("trades"), eq("TST"), eq(trade));
+        verify(kafkaTemplate, timeout(1000)).send(eq("order-and-trades"), eq("TST"), eq(order));
+        verify(kafkaTemplate, timeout(1000)).send(eq("order-and-trades"), eq("TST"), eq(trade));
     }
 }
